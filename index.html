@@ -1,59 +1,406 @@
-<div>Teachable Machine Image Model</div>
-<button type="button" onclick="init()">Start</button>
-<div id="webcam-container"></div>
-<div id="label-container"></div>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
-<script type="text/javascript">
-    // More API functions here:
-    // https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Reconhecimento de Imagem</title>
 
-    // the link to your model provided by Teachable Machine export panel
-    const URL = "./my_model/";
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
-    let model, webcam, labelContainer, maxPredictions;
-
-    // Load the image model and setup the webcam
-    async function init() {
-        const modelURL = URL + "model.json";
-        const metadataURL = URL + "metadata.json";
-
-        // load the model and metadata
-        // Refer to tmImage.loadFromFiles() in the API to support files from a file picker
-        // or files from your local hard drive
-        // Note: the pose library adds "tmImage" object to your window (window.tmImage)
-        model = await tmImage.load(modelURL, metadataURL);
-        maxPredictions = model.getTotalClasses();
-
-        // Convenience function to setup a webcam
-        const flip = true; // whether to flip the webcam
-        webcam = new tmImage.Webcam(200, 200, flip); // width, height, flip
-        await webcam.setup(); // request access to the webcam
-        await webcam.play();
-        window.requestAnimationFrame(loop);
-
-        // append elements to the DOM
-        document.getElementById("webcam-container").appendChild(webcam.canvas);
-        labelContainer = document.getElementById("label-container");
-        for (let i = 0; i < maxPredictions; i++) { // and class labels
-            labelContainer.appendChild(document.createElement("div"));
+    <style>
+        html {
+            scroll-behavior: smooth;
         }
-    }
 
-    async function loop() {
-        webcam.update(); // update the webcam frame
-        await predict();
-        window.requestAnimationFrame(loop);
-    }
-
-    // run the webcam image through the image model
-    async function predict() {
-        // predict can take in an image, video or canvas html element
-        const prediction = await model.predict(webcam.canvas);
-        for (let i = 0; i < maxPredictions; i++) {
-            const classPrediction =
-                prediction[i].className + ": " + prediction[i].probability.toFixed(2);
-            labelContainer.childNodes[i].innerHTML = classPrediction;
+        :root {
+            --brand-ink: #18253b;
+            --brand-blue: #1f6feb;
+            --brand-cyan: #22b8cf;
+            --brand-ice: #f0f7ff;
+            --brand-sand: #fff8ef;
+            --brand-shadow: 0 12px 35px rgba(24, 37, 59, 0.12);
+            --radius-xl: 1.5rem;
         }
-    }
-</script>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Space Grotesk", "Segoe UI", sans-serif;
+            color: var(--brand-ink);
+            background:
+                radial-gradient(circle at 80% 10%, rgba(34, 184, 207, 0.22) 0%, rgba(34, 184, 207, 0) 44%),
+                radial-gradient(circle at 10% 90%, rgba(31, 111, 235, 0.2) 0%, rgba(31, 111, 235, 0) 40%),
+                linear-gradient(135deg, #ffffff 0%, #f7fbff 48%, #fffdf7 100%);
+            overflow-x: hidden;
+        }
+
+        .hero-title {
+            font-family: "Fraunces", Georgia, serif;
+            font-size: clamp(2rem, 3.8vw, 3.6rem);
+            line-height: 1.08;
+            letter-spacing: -0.02em;
+        }
+
+        .hero-subtitle {
+            font-size: clamp(1rem, 1.4vw, 1.2rem);
+            color: #42526b;
+            max-width: 38rem;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.78);
+            border: 1px solid rgba(31, 111, 235, 0.12);
+            backdrop-filter: blur(8px);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--brand-shadow);
+        }
+
+        .drop-zone {
+            border: 2px dashed rgba(31, 111, 235, 0.35);
+            border-radius: 1.2rem;
+            background: linear-gradient(155deg, rgba(31, 111, 235, 0.09), rgba(34, 184, 207, 0.09));
+            padding: 2rem 1.25rem;
+            text-align: center;
+        }
+
+        .preview-frame {
+            border: 1px solid rgba(24, 37, 59, 0.12);
+            border-radius: 1rem;
+            background: #ffffff;
+            min-height: 220px;
+            display: grid;
+            place-items: center;
+            overflow: hidden;
+        }
+
+        .preview-frame img,
+        .preview-frame canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+            object-fit: cover;
+        }
+
+        .mode-hidden {
+            display: none;
+        }
+
+        .prediction-card {
+            border: 1px solid rgba(24, 37, 59, 0.08);
+            border-radius: 1rem;
+            background: #ffffff;
+            transition: transform 0.35s ease, box-shadow 0.35s ease;
+        }
+
+        .prediction-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 24px rgba(24, 37, 59, 0.13);
+        }
+
+        .confidence-track {
+            height: 0.65rem;
+            border-radius: 999px;
+            background: #eaf1ff;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, var(--brand-blue), var(--brand-cyan));
+        }
+
+        .hero-content,
+        .hero-visual,
+        .result-block {
+            animation: reveal 0.8s ease both;
+        }
+
+        .hero-visual {
+            animation-delay: 0.15s;
+        }
+
+        .result-block {
+            animation-delay: 0.3s;
+        }
+
+        @keyframes reveal {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="container py-4 py-lg-5">
+        <div class="glass-panel p-4 p-lg-5">
+            <div class="row g-4 align-items-center">
+                <div class="col-12 col-lg-7 hero-content">
+                    <p class="text-uppercase fw-semibold small text-primary mb-2">Reconhecimento de imagem</p>
+                    <h1 class="hero-title mb-3">Classifique imagens em uma interface elegante e responsiva</h1>
+                    <p class="hero-subtitle mb-4">
+                        Estrutura pronta em HTML com Bootstrap e CSS personalizado para você conectar seu modelo quando quiser.
+                    </p>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button id="btn-analisar" type="button" class="btn btn-primary btn-lg">Iniciar análise</button>
+                        <button id="btn-modo-webcam" type="button" class="btn btn-outline-primary btn-lg">Usar webcam</button>
+                    </div>
+                </div>
+
+                <div class="col-12 col-lg-5 hero-visual">
+                    <section class="drop-zone h-100" id="envio-imagem">
+                        <h2 class="h5 fw-bold mb-3">Escolha a entrada da análise</h2>
+                        <p class="text-secondary mb-3">Você pode enviar arquivo ou usar a câmera em tempo real</p>
+
+                        <div id="area-arquivo">
+                            <input id="input-imagem" class="form-control" type="file" accept="image/*" aria-label="Selecionar imagem para reconhecimento">
+                            <small class="d-block text-secondary mt-2">JPG, PNG ou WEBP com até 5MB</small>
+                        </div>
+
+                        <div id="area-webcam" class="mode-hidden mt-3">
+                            <p class="mb-2 text-secondary">Câmera pronta para captura ao iniciar a análise.</p>
+                            <button id="btn-ligar-webcam" type="button" class="btn btn-sm btn-outline-primary">Ativar câmera</button>
+                            <button id="btn-desligar-webcam" type="button" class="btn btn-sm btn-outline-danger">Desativar câmera</button>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container pb-5 result-block" id="resultados">
+        <section class="glass-panel p-4 p-lg-5">
+            <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center mb-4">
+                <h2 class="h3 mb-2 mb-lg-0">Resultados da classificação</h2>
+                <span id="status-modelo" class="badge rounded-pill text-bg-primary px-3 py-2">Modelo não carregado</span>
+            </div>
+
+            <div class="row g-4 align-items-start mb-3">
+                <div class="col-12 col-lg-5">
+                    <div id="preview" class="preview-frame">
+                        <p class="m-0 text-secondary px-3 text-center">A pré-visualização da imagem ou webcam aparecerá aqui.</p>
+                    </div>
+                </div>
+                <div class="col-12 col-lg-7">
+                    <div id="alerta" class="alert alert-info mb-0" role="alert">
+                        Selecione um arquivo ou ative a webcam e clique em Iniciar análise.
+                    </div>
+                </div>
+            </div>
+
+            <div id="resultados-lista" class="row g-3">
+                <div class="col-12">
+                    <article class="prediction-card p-3">
+                        <p class="m-0 text-secondary">Nenhuma análise executada ainda.</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    <script>
+        const MODEL_URL = "./my_model/";
+
+        let model;
+        let maxPredictions = 0;
+        let webcam;
+        let modoAtual = "arquivo";
+        let imagemSelecionada = null;
+
+        const btnAnalisar = document.getElementById("btn-analisar");
+        const btnModoWebcam = document.getElementById("btn-modo-webcam");
+        const btnLigarWebcam = document.getElementById("btn-ligar-webcam");
+        const btnDesligarWebcam = document.getElementById("btn-desligar-webcam");
+        const inputImagem = document.getElementById("input-imagem");
+        const areaArquivo = document.getElementById("area-arquivo");
+        const areaWebcam = document.getElementById("area-webcam");
+        const preview = document.getElementById("preview");
+        const statusModelo = document.getElementById("status-modelo");
+        const alerta = document.getElementById("alerta");
+        const resultadosLista = document.getElementById("resultados-lista");
+
+        async function carregarModelo() {
+            if (model) {
+                return;
+            }
+
+            statusModelo.textContent = "Carregando modelo...";
+            statusModelo.className = "badge rounded-pill text-bg-warning px-3 py-2";
+
+            try {
+                const modelURL = MODEL_URL + "model.json";
+                const metadataURL = MODEL_URL + "metadata.json";
+                model = await tmImage.load(modelURL, metadataURL);
+                maxPredictions = model.getTotalClasses();
+                statusModelo.textContent = "Modelo carregado";
+                statusModelo.className = "badge rounded-pill text-bg-success px-3 py-2";
+            } catch (error) {
+                statusModelo.textContent = "Falha ao carregar modelo";
+                statusModelo.className = "badge rounded-pill text-bg-danger px-3 py-2";
+                atualizarAlerta("Não foi possível carregar ./my_model/model.json e metadata.json.", "danger");
+                throw error;
+            }
+        }
+
+        function atualizarAlerta(mensagem, tipo) {
+            alerta.className = "alert alert-" + tipo + " mb-0";
+            alerta.textContent = mensagem;
+        }
+
+        function ativarModo(modo) {
+            modoAtual = modo;
+            const usandoWebcam = modo === "webcam";
+
+            areaWebcam.classList.toggle("mode-hidden", !usandoWebcam);
+            btnModoWebcam.classList.toggle("btn-primary", usandoWebcam);
+            btnModoWebcam.classList.toggle("btn-outline-primary", !usandoWebcam);
+
+            if (usandoWebcam) {
+                atualizarAlerta("Modo webcam ativo. Você ainda pode selecionar um arquivo a qualquer momento.", "info");
+            } else {
+                atualizarAlerta("Modo arquivo ativo. Selecione uma imagem e clique em Iniciar análise.", "info");
+            }
+        }
+
+        function mostrarPreviewImagem(arquivo) {
+            const img = document.createElement("img");
+            img.alt = "Imagem selecionada";
+            img.src = URL.createObjectURL(arquivo);
+            img.onload = () => {
+                URL.revokeObjectURL(img.src);
+            };
+
+            preview.innerHTML = "";
+            preview.appendChild(img);
+            imagemSelecionada = img;
+        }
+
+        async function iniciarWebcam() {
+            if (webcam) {
+                return;
+            }
+
+            try {
+                webcam = new tmImage.Webcam(480, 320, true);
+                await webcam.setup();
+                await webcam.play();
+
+                preview.innerHTML = "";
+                preview.appendChild(webcam.canvas);
+
+                atualizarAlerta("Webcam ativada com sucesso.", "success");
+            } catch (error) {
+                atualizarAlerta("Não foi possível acessar a webcam. Verifique as permissões do navegador.", "danger");
+                webcam = null;
+                throw error;
+            }
+        }
+
+        function desligarWebcam() {
+            if (!webcam) {
+                return;
+            }
+
+            webcam.stop();
+            webcam = null;
+            preview.innerHTML = '<p class="m-0 text-secondary px-3 text-center">Webcam desligada. Você pode ativar novamente quando quiser.</p>';
+            atualizarAlerta("Webcam desativada.", "secondary");
+            ativarModo("arquivo");
+        }
+
+        function renderizarResultados(predictions) {
+            resultadosLista.innerHTML = "";
+
+            predictions
+                .sort((a, b) => b.probability - a.probability)
+                .slice(0, maxPredictions)
+                .forEach((item) => {
+                    const porcentagem = Math.round(item.probability * 100);
+                    const coluna = document.createElement("div");
+                    coluna.className = "col-12 col-md-6 col-xl-4";
+                    coluna.innerHTML =
+                        '<article class="prediction-card p-3 h-100">' +
+                            '<div class="d-flex justify-content-between mb-2">' +
+                                "<strong>" + item.className + "</strong>" +
+                                '<span class="fw-semibold">' + porcentagem + "%</span>" +
+                            "</div>" +
+                            '<div class="confidence-track">' +
+                                '<div class="confidence-fill" style="width: ' + porcentagem + '%;"></div>' +
+                            "</div>" +
+                        "</article>";
+                    resultadosLista.appendChild(coluna);
+                });
+        }
+
+        async function analisar() {
+            document.getElementById("resultados").scrollIntoView({ behavior: "smooth" });
+
+            try {
+                await carregarModelo();
+
+                let predictions;
+
+                if (modoAtual === "arquivo") {
+                    if (!imagemSelecionada) {
+                        atualizarAlerta("Selecione uma imagem antes de iniciar a análise.", "warning");
+                        return;
+                    }
+
+                    predictions = await model.predict(imagemSelecionada);
+                    atualizarAlerta("Análise por arquivo concluída com sucesso.", "success");
+                } else {
+                    if (!webcam) {
+                        await iniciarWebcam();
+                    }
+
+                    webcam.update();
+                    predictions = await model.predict(webcam.canvas);
+                    atualizarAlerta("Análise por webcam concluída com sucesso.", "success");
+                }
+
+                renderizarResultados(predictions);
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        inputImagem.addEventListener("change", (event) => {
+            const arquivo = event.target.files && event.target.files[0];
+            if (!arquivo) {
+                return;
+            }
+
+            modoAtual = "arquivo";
+            mostrarPreviewImagem(arquivo);
+            atualizarAlerta("Imagem selecionada. Clique em Iniciar análise.", "info");
+        });
+
+        btnModoWebcam.addEventListener("click", () => {
+            if (modoAtual === "webcam") {
+                desligarWebcam();
+            } else {
+                ativarModo("webcam");
+            }
+        });
+        btnLigarWebcam.addEventListener("click", iniciarWebcam);
+        btnDesligarWebcam.addEventListener("click", desligarWebcam);
+        btnAnalisar.addEventListener("click", analisar);
+
+        ativarModo("arquivo");
+    </script>
+</body>
+</html>
