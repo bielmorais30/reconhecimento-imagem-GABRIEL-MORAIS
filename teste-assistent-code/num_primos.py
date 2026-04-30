@@ -21,17 +21,22 @@ def is_prime(n: int) -> bool:
 	  probabilistic tests (e.g., Miller–Rabin) are recommended.
 	"""
 	if not isinstance(n, int):
+		# Mantém comportamento estrito: evita coerções implícitas de tipos.
 		return False
 	if n < 2:
+		# Por definição, primos são inteiros maiores ou iguais a 2.
 		return False
 	if n <= 3:
+		# 2 e 3 são os únicos primos que escapam dos filtros abaixo.
 		return True
 	if n % 2 == 0 or n % 3 == 0:
+		# Elimina rapidamente múltiplos dos dois menores primos.
 		return False
 
 	limit = math.isqrt(n)
 	i = 5
 	while i <= limit:
+		# Após 2 e 3, possíveis divisores primos estão na forma 6k ± 1.
 		if n % i == 0 or n % (i + 2) == 0:
 			return False
 		i += 6
@@ -39,9 +44,14 @@ def is_prime(n: int) -> bool:
 
 
 def _main(argv: Any = None) -> None:
+	"""Run a small CLI that checks whether provided numbers are prime.
+
+	If no numbers are provided, uses a default sample set.
+	"""
 	parser = argparse.ArgumentParser(description="Cheque se números são primos")
 	parser.add_argument("numbers", nargs="*", type=int, help="Números a testar")
 	args = parser.parse_args(argv)
+	# Se nenhum número for passado, roda um conjunto pequeno de demonstração.
 	tests = args.numbers or [-5, 0, 1, 2, 3, 4, 17, 18, 19, 7919]
 	for t in tests:
 		print(f"{t}: {'prime' if is_prime(t) else 'not prime'}")
